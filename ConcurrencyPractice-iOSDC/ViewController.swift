@@ -202,7 +202,7 @@ class ViewController: UIViewController {
     }
     
     
-    // MARK: - Structured Conccurency
+    // MARK: - ② Structured Conccurency
     // MARK: - Case7. 非同期処理の開始
     // async関数はasync関数の中でしか呼べない -> async関数を呼び出すコールスタック全体がasyncで繋がってしまう... どうするか？
     // すべてのasync関数はTask上で実行される -> メインスレッド内でasync関数を使用したい場合はTask{}を使用する（async関数を使用するコールスタックは、根っこまで辿ると必ずTaskがある）
@@ -236,5 +236,73 @@ class ViewController: UIViewController {
         
         return icons
     }
+    
+    
+    // MARK: - Case11. 非同期処理のキャンセル（非同期APIの利用側）
+    // ------------------------------------------------
+    //  Before
+    // ------------------------------------------------
+    var canceller: DownloadCanceller?
+    func downloadData(
+        from url: URL,
+        cancellation: @escaping () -> Void,
+        completion: @escaping (Result<Data, Error>) -> Void
+    ) -> DownloadCanceller {
+        return DownloadCanceller.init()
+    }
+    
+    @IBAction func downloadButtonPressed(_ sender: Any) {
+        let url = URL.init(string: "")!
+        canceller = downloadData(from: url,
+            cancellation: {
+                // キャンセル時の処理
+            }, completion: { data in
+                do {
+                    let data = try data.get()
+                } catch {
+                    
+                }
+            }
+        )
+    }
+    
+    @IBAction func cancellButtonPressed(_ sender: Any) {
+        canceller?.cancel()
+        canceller = nil
+    }
+    
+    
+    // ------------------------------------------------
+    //  After
+    // ------------------------------------------------
+    var task: Task<Void, Never>?
+    @IBAction func downloadButtonPressed2(_ sender: Any) {
+        task = Task {
+            do {
+                let data = try await downloadData2(from: url)
+                // データを使う処理
+            } catch {
+                if Task.isCancelled {
+                    // キャンセル時の処理
+                } else {
+                    // エラーハンドリング
+                }
+            }
+        }
+    }
+    
+    @IBAction func cancellButtonPressed2(_ sender: Any) {
+        task?.cancel()
+        task = nil
+    }
+    
+    
+    // MARK: - ③ actor
+    // MARK: - Case14. 共有された状態の変更
 }
 
+class DownloadCanceller {
+    func cancel() {
+        
+    }
+}
