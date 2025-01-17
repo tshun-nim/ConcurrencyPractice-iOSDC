@@ -242,6 +242,9 @@ class ViewController: UIViewController {
     // ------------------------------------------------
     //  Before
     // ------------------------------------------------
+    class DownloadCanceller {
+        func cancel() {}
+    }
     var canceller: DownloadCanceller?
     func downloadData(
         from url: URL,
@@ -299,10 +302,68 @@ class ViewController: UIViewController {
     
     // MARK: - ③ actor
     // MARK: - Case14. 共有された状態の変更
-}
-
-class DownloadCanceller {
-    func cancel() {
+    // ------------------------------------------------
+    //  Before
+    // ------------------------------------------------
+    final class CounterClass {
+        private var count: Int = 0
         
+        func increment() -> Int {
+            count += 1
+            return count
+        }
+        
+        private let queue: DispatchQueue = .init(label: UUID().uuidString)
+        func increment(completion: @escaping(Int) -> Void) {
+            queue.async { [self] in
+                count += 1
+                completion(count)
+            }
+        }
     }
+    // データ競合を引き起こす例
+    let unSafety = { () -> Void in
+        let counter: CounterClass = .init()
+        
+        DispatchQueue.global().async {
+            print(counter.increment()) // 1? 2?
+        }
+        
+        DispatchQueue.global().async {
+            print(counter.increment()) // 2
+        }
+    }
+    // データ競合を防ぐ手段には...?
+    //  方法1: ロック -> スレッドをブロッキングしてしまうため、パフォーマンスが悪く可能性がある。またデッドロックを起こす可能性もある
+    //  方法2: シリアルキュー -> OK
+    let safety = { () -> Void in
+        let counter: CounterClass = .init()
+        
+        counter.increment { count in
+            print(count) // 1 or 2
+        }
+        
+        counter.increment { count in
+            print(count) // 1 or 2
+        }
+    }
+    
+    
+    
+    // ------------------------------------------------
+    //  After
+    // ------------------------------------------------
+    // actorは自身がqueueを持っている
+    // 　→ actor内のメソッドは自動的にactorのqueue上で実行される
+    actor CounterActor {
+        private var count: Int = 0
+        // 使用する際はawaitが必要となる
+        func increment() -> Int {
+            count += 1
+            return count
+        }
+    }
+    
+    
+    // MARK: - Case15. 共有された状態の変更（インスタンス内でのメソッドの呼び出し）
 }
